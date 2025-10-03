@@ -5,24 +5,19 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyCIVcMNlGKus7mEBJjJf--epN7AGLFh1CY",
-  authDomain: "aicampus4u-cd32d.firebaseapp.com",
-  projectId: "aicampus4u-cd32d",
-  storageBucket: "aicampus4u-cd32d.firebasestorage.app",
-  messagingSenderId: "1011906376655",
-  appId: "1:1011906376655:web:f0d7a30fbe139399b818ba",
-  measurementId: "G-Z68GRDGFNP"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-
-// // Initialize Firebase
-// const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-// const auth = getAuth(app);
-// export { app, auth };
-
-// New Initialize Firebase with google signin/up
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const provider = new GoogleAuthProvider();
+
 export const signInWithGoogle = () => signInWithPopup(auth, provider);
 export const logout = () => signOut(auth);
