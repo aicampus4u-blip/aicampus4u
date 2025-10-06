@@ -53,7 +53,7 @@ export default function LoginPage() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="m@example.com" required value={email} onChange={e => setEmail(e.target.value)} disabled={isSigningIn} />
+                <Input id="email" type="email" placeholder="user@myaicampus.app" required value={email} onChange={e => setEmail(e.target.value)} disabled={isSigningIn} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>

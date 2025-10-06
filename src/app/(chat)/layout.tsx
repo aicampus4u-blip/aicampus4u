@@ -27,7 +27,7 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <SidebarProvider>
-      <div className="flex h-screen bg-background text-foreground overflow-hidden">
+      <div className="flex h-screen bg-background text-foreground overflow-hidden w-full">
         <Sidebar>
           <AppSidebar />
         </Sidebar>
