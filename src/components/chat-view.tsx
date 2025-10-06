@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import type { AnyBot, Message } from '@/types';
 import { ChatList } from './chat-list';
@@ -11,21 +11,24 @@ import { professionAIBot } from '@/ai/flows/profession-ai-bot';
 import { topicAIBot } from '@/ai/flows/topic-ai-bot';
 import { useToast } from '@/hooks/use-toast';
 import { Bot as BotIcon } from 'lucide-react';
+import { useChats } from '@/hooks/use-chats'; //rb: use chat hhok
 
 export function ChatView({ bot }: { bot: AnyBot }) {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const { messages, saveMessage, loading } = useChats(bot.id); //rb: use the hook
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const handleSend = async (content: string) => {
     const userMessage: Message = {
-      id: crypto.randomUUID(),
       role: 'user',
       content,
       createdAt: new Date(),
+      userId: '', //rb: will be set in saveMessage
+      botId: bot.id,
     };
-    setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
+
+    await saveMessage(userMessage); //rb: save user message to Firestore
 
     let responseContent: string | undefined;
 
@@ -61,23 +64,29 @@ export function ChatView({ bot }: { bot: AnyBot }) {
       setIsLoading(false);
       if (responseContent) {
         const assistantMessage: Message = {
-          id: crypto.randomUUID(),
           role: 'assistant',
           content: responseContent,
           createdAt: new Date(),
+          userId: '', //rb: will be set in saveMessage
+          botId: bot.id,
         };
-        setMessages((prev) => [...prev, assistantMessage]);
+        await saveMessage(assistantMessage); //rb: save assistant message to Firestore
       }
     }
   };
 
   const startConversation = (starter: string) => {
-    if (!isLoading) {
+    if (!isLoading) 
+      {
       handleSend(starter);
     }
   }
 
   const BotAvatar = bot.isCustom ? BotIcon : bot.avatar;
+
+  if (loading) {
+    return <div className="flex flex-1 items-center justify-center mt-4">Loading chats...</div>;
+  }
 
   return (
     <div className="flex h-full flex-col">
