@@ -57,6 +57,22 @@ Description: {{{description}}}
 Persona:`,
 });
 
+// const createCustomBotFlow = ai.defineFlow(
+//   {
+//     name: 'createCustomBotFlow',
+//     inputSchema: CustomBotInputSchema,
+//     outputSchema: CustomBotOutputSchema,
+//   },
+//   async input => {
+//     const {output} = await prompt(input);
+//     return output!;
+//   }
+// );
+
+
+//Keeps your actual Gemini logic intact.
+//Adds a graceful fallback when the API limit is hit (no crash).
+//Generates a mock persona dynamically so bots can still be created for testing. 
 const createCustomBotFlow = ai.defineFlow(
   {
     name: 'createCustomBotFlow',
@@ -64,7 +80,16 @@ const createCustomBotFlow = ai.defineFlow(
     outputSchema: CustomBotOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    return output!;
+    try {
+      const { output } = await prompt(input);
+      return output!;
+    } catch (error) {
+      console.error("Gemini API error, using fallback persona:", error);
+      // fallback persona if API fails or quota is exceeded
+      const context = input.field || input.profession || input.topic || 'General Knowledge';
+      return {
+        persona: `This is a mock AI assistant specializing in ${context}. It can discuss topics within ${context}, provide helpful insights, and politely redirect users when questions go beyond its expertise.`,
+      };
+    }
   }
 );
