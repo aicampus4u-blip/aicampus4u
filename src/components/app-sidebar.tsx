@@ -62,7 +62,7 @@ export function AppSidebar() {
   const { bots: customBots, loading } = useCustomBots();
 
 
-  const { plan, status, subscriptionLoading } = useSubscription();
+  const { plan, status, loading: subscriptionLoading } = useSubscription();
   if (subscriptionLoading) {
     return <div>Loading subscription...</div>;
   }

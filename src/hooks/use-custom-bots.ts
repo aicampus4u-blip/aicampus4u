@@ -1,16 +1,19 @@
-'use client';
-import { useState, useEffect, useCallback } from 'react';
-import { db } from '@/lib/firebase';
-import { getDocs, collection, deleteDoc, doc } from 'firebase/firestore';
-import type { CustomBot } from '@/types';
-import { createCustomBot as createBotPersona } from '@/ai/flows/custom-bot-creation';
-import { useToast } from './use-toast';
-import { Bot as BotIcon } from 'lucide-react';
-import { useAuth } from './use-auth';
-import { useSubscription } from './use-subscription';
-import { saveBotForUser } from '@/lib/bot-service'; // ✅ centralized service
+"use client";
+import { useState, useEffect, useCallback } from "react";
+import { db } from "@/lib/firebase";
+import { getDocs, collection, deleteDoc, doc } from "firebase/firestore";
+import type { CustomBot } from "@/types";
+import { createCustomBot as createBotPersona } from "@/ai/flows/custom-bot-creation";
+import { useToast } from "./use-toast";
+import { Bot as BotIcon } from "lucide-react";
+import { useAuth } from "./use-auth";
+import { useSubscription } from "./use-subscription";
+import { saveBotForUser } from "@/lib/bot-service"; // ✅ centralized service
 
-const STORAGE_KEY = 'custom-ai-bots';
+import { useRouter } from "next/navigation";
+import { onSnapshot } from "firebase/firestore";
+
+const STORAGE_KEY = "custom-ai-bots";
 
 export function useCustomBots() {
   const [bots, setBots] = useState<CustomBot[]>([]);
@@ -18,6 +21,8 @@ export function useCustomBots() {
   const { toast } = useToast();
   const { plan, loading: subscriptionLoading } = useSubscription();
   const { user } = useAuth();
+
+  const router = useRouter();
 
   // // 🔹 Load bots from Firestore when user logs in
   // useEffect(() => {
@@ -53,82 +58,82 @@ export function useCustomBots() {
 
   //   fetchBots();
   // }, [user, toast]);
-  // 🔹 Load bots from Firestore when user logs in
-useEffect(() => {
-  async function fetchBots() {
+
+  // 🔹 Real-time sync with Firestore
+  useEffect(() => {
     if (!user) {
+      setBots([]);
       setLoading(false);
       return;
     }
 
-    try {
-      const snapshot = await getDocs(collection(db, 'users', user.uid, 'bots'));
+    const botsRef = collection(db, "users", user.uid, "bots");
 
-      const firestoreBots: CustomBot[] = snapshot.docs.map((doc) => {
-        const data = doc.data() as Partial<CustomBot>;
+    const unsubscribe = onSnapshot(
+      botsRef,
+      (snapshot) => {
+        const firestoreBots: CustomBot[] = snapshot.docs.map((doc) => {
+          const data = doc.data() as Partial<CustomBot>;
+          return {
+            id: doc.id,
+            name: data.name || "Unnamed Bot",
+            description: data.description || "",
+            type: data.type || "field",
+            isCustom: data.isCustom ?? true,
+            createdAt: data.createdAt || new Date().toISOString(),
+            persona: typeof data.persona === "string" ? data.persona : "",
+            conversationStarters: data.conversationStarters || [],
+            avatar: BotIcon,
+          };
+        });
 
-        return {
-          id: doc.id, // Always include Firestore doc ID
-          name: data.name || 'Unnamed Bot',
-          description: data.description || '',
-          type: data.type || 'field',
-          isCustom: data.isCustom ?? true,
-          createdAt: data.createdAt || new Date().toISOString(),
-          persona: data.persona || {},
-          conversationStarters: data.conversationStarters || [],
-          avatar: BotIcon, // Client-side only
-        };
-      });
+        setBots(firestoreBots);
 
-      setBots(firestoreBots);
+        // Cache locally
+        const storableBots = firestoreBots.map(({ avatar, ...rest }) => rest);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(storableBots));
 
-      // Cache locally (omit avatar since it’s not serializable)
-      const storableBots = firestoreBots.map(({ avatar, ...rest }) => rest);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(storableBots));
-    } catch (error) {
-      console.error('Error loading bots:', error);
-      toast({
-        title: 'Error',
-        description: 'Could not load your bots from Firestore.',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error syncing bots:", error);
+        toast({
+          title: "Error",
+          description: "Could not sync your bots from Firestore.",
+          variant: "destructive",
+        });
+        setLoading(false);
+      }
+    );
 
-  fetchBots();
-}, [user, toast]);
+    // Cleanup listener when user logs out or component unmounts
+    return () => unsubscribe();
+  }, [user, toast]);
 
-
-  // 🔹 Add a new bot — now uses centralized service
+  // 🔹 Add a new bot
   const addBot = useCallback(
     async (botData: {
       name: string;
       description: string;
-      type: 'field' | 'profession' | 'topic';
+      type: "field" | "profession" | "topic";
     }) => {
       if (!user) {
         toast({
-          title: 'Authentication required',
-          description: 'Please sign in to create a bot.',
-          variant: 'destructive',
+          title: "Authentication required",
+          description: "Please sign in to create a bot.",
+          variant: "destructive",
         });
-        throw new Error('User not logged in');
+        throw new Error("User not logged in");
       }
 
       try {
         // 1️⃣ Generate bot persona
         const personaResult = await createBotPersona({
-          botType:
-            botData.type.charAt(0).toUpperCase() + botData.type.slice(1) as
-              | 'Field'
-              | 'Profession'
-              | 'Topic',
-          field: botData.type === 'field' ? botData.name : undefined,
-          profession:
-            botData.type === 'profession' ? botData.name : undefined,
-          topic: botData.type === 'topic' ? botData.name : undefined,
+          botType: (botData.type.charAt(0).toUpperCase() +
+            botData.type.slice(1)) as "Field" | "Profession" | "Topic",
+          field: botData.type === "field" ? botData.name : undefined,
+          profession: botData.type === "profession" ? botData.name : undefined,
+          topic: botData.type === "topic" ? botData.name : undefined,
           description: botData.description,
         });
 
@@ -146,45 +151,44 @@ useEffect(() => {
           ],
         };
 
-        // // 2️⃣ Delegate Firestore saving + plan enforcement to service
-        // await saveBotForUser(user.uid, {
-        //   ...newBot,
-        //   avatar: undefined,
-        // });
+        // 2️⃣ Save to Firestore
         const { avatar, ...storableBot } = newBot;
-await saveBotForUser(user.uid, storableBot);
+        await saveBotForUser(user.uid, storableBot);
 
-//
-// ✅ 3️⃣ Immediately re-fetch latest bots
-      const snapshot = await getDocs(collection(db, 'users', user.uid, 'bots'));
-      const refreshedBots: CustomBot[] = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...(doc.data() as any),
-        avatar: BotIcon,
-      }));
-//
+        // 3️⃣ Re-fetch bots from Firestore (authoritative source)
+        const snapshot = await getDocs(
+          collection(db, "users", user.uid, "bots")
+        );
+        const refreshedBots: CustomBot[] = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...(doc.data() as any),
+          avatar: BotIcon,
+        }));
 
-
-        // 3️⃣ Update local state + storage
-        const updatedBots = [...bots, newBot];
-        setBots(updatedBots);
-        const storableBots = updatedBots.map(({ avatar, ...rest }) => rest);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(storableBots));
+        // 4️⃣ Update local state + cache
+        setBots(refreshedBots);
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify(refreshedBots.map(({ avatar, ...rest }) => rest))
+        );
 
         toast({
-          title: 'Bot Created',
+          title: "Bot Created",
           description: `${botData.name} has been created successfully!`,
         });
 
+        // ✅ Navigate to the new bot’s chat page (adjust path if needed)
+        router.push(`/chat/${newBot.id}`);
+
         return newBot;
       } catch (error: any) {
-        console.error('Failed to create bot:', error);
+        console.error("Failed to create bot:", error);
         toast({
-          title: 'Bot Creation Failed',
+          title: "Bot Creation Failed",
           description:
             error.message ||
-            'There was an issue creating your bot. Please try again.',
-          variant: 'destructive',
+            "There was an issue creating your bot. Please try again.",
+          variant: "destructive",
         });
         throw error;
       }
@@ -192,24 +196,44 @@ await saveBotForUser(user.uid, storableBot);
     [bots, toast, user]
   );
 
-  // 🔹 Delete bot (Firestore + local)
+  // 🔹 Delete bot
   const deleteBot = useCallback(
     async (botId: string) => {
-      const newBots = bots.filter((bot) => bot.id !== botId);
-      setBots(newBots);
-      const storableBots = newBots.map(({ avatar, ...rest }) => rest);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(storableBots));
+      if (!user) return;
 
-      if (user) {
-        await deleteDoc(doc(db, 'users', user.uid, 'bots', botId));
+      try {
+        await deleteDoc(doc(db, "users", user.uid, "bots", botId));
+
+        // ✅ Re-fetch bots from Firestore again
+        const snapshot = await getDocs(
+          collection(db, "users", user.uid, "bots")
+        );
+        const refreshedBots: CustomBot[] = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...(doc.data() as any),
+          avatar: BotIcon,
+        }));
+
+        setBots(refreshedBots);
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify(refreshedBots.map(({ avatar, ...rest }) => rest))
+        );
+
+        toast({
+          title: "Bot Deleted",
+          description: "Your custom bot has been successfully deleted.",
+        });
+      } catch (error) {
+        console.error("Error deleting bot:", error);
+        toast({
+          title: "Error",
+          description: "Failed to delete bot. Please try again.",
+          variant: "destructive",
+        });
       }
-
-      toast({
-        title: 'Bot Deleted',
-        description: 'Your custom bot has been successfully deleted.',
-      });
     },
-    [bots, toast, user]
+    [user, toast]
   );
 
   return {

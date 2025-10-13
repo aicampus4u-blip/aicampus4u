@@ -20,6 +20,7 @@ export function ChatView({ bot }: { bot: AnyBot }) {
 
   const handleSend = async (content: string) => {
     const userMessage: Message = {
+      id: crypto.randomUUID(), //
       role: 'user',
       content,
       createdAt: new Date(),
@@ -64,6 +65,7 @@ export function ChatView({ bot }: { bot: AnyBot }) {
       setIsLoading(false);
       if (responseContent) {
         const assistantMessage: Message = {
+          id: crypto.randomUUID(), //
           role: 'assistant',
           content: responseContent,
           createdAt: new Date(),
