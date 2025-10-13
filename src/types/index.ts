@@ -24,7 +24,8 @@ export type CustomBot = {
   description: string;
   type: 'field' | 'profession' | 'topic';
   isCustom: true;
-  persona: string;
+  // persona: string;
+  persona: string | Record<string, any>;
   createdAt: string;
   avatar: ComponentType<{ className?: string }>;
   conversationStarters?: string[];

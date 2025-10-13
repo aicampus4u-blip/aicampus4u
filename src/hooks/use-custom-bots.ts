@@ -19,40 +19,87 @@ export function useCustomBots() {
   const { plan, loading: subscriptionLoading } = useSubscription();
   const { user } = useAuth();
 
+  // // 🔹 Load bots from Firestore when user logs in
+  // useEffect(() => {
+  //   async function fetchBots() {
+  //     if (!user) {
+  //       setLoading(false);
+  //       return;
+  //     }
+
+  //     try {
+  //       const snapshot = await getDocs(collection(db, 'users', user.uid, 'bots'));
+  //       const firestoreBots: CustomBot[] = snapshot.docs.map(doc => ({
+  //         ...doc.data(),
+  //         avatar: BotIcon,
+  //       })) as CustomBot[];
+
+  //       setBots(firestoreBots);
+
+  //       // cache locally
+  //       const storableBots = firestoreBots.map(({ avatar, ...rest }) => rest);
+  //       localStorage.setItem(STORAGE_KEY, JSON.stringify(storableBots));
+  //     } catch (error) {
+  //       console.error('Error loading bots:', error);
+  //       toast({
+  //         title: 'Error',
+  //         description: 'Could not load your bots from Firestore.',
+  //         variant: 'destructive',
+  //       });
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   }
+
+  //   fetchBots();
+  // }, [user, toast]);
   // 🔹 Load bots from Firestore when user logs in
-  useEffect(() => {
-    async function fetchBots() {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const snapshot = await getDocs(collection(db, 'users', user.uid, 'bots'));
-        const firestoreBots: CustomBot[] = snapshot.docs.map(doc => ({
-          ...doc.data(),
-          avatar: BotIcon,
-        })) as CustomBot[];
-
-        setBots(firestoreBots);
-
-        // cache locally
-        const storableBots = firestoreBots.map(({ avatar, ...rest }) => rest);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(storableBots));
-      } catch (error) {
-        console.error('Error loading bots:', error);
-        toast({
-          title: 'Error',
-          description: 'Could not load your bots from Firestore.',
-          variant: 'destructive',
-        });
-      } finally {
-        setLoading(false);
-      }
+useEffect(() => {
+  async function fetchBots() {
+    if (!user) {
+      setLoading(false);
+      return;
     }
 
-    fetchBots();
-  }, [user, toast]);
+    try {
+      const snapshot = await getDocs(collection(db, 'users', user.uid, 'bots'));
+
+      const firestoreBots: CustomBot[] = snapshot.docs.map((doc) => {
+        const data = doc.data() as Partial<CustomBot>;
+
+        return {
+          id: doc.id, // Always include Firestore doc ID
+          name: data.name || 'Unnamed Bot',
+          description: data.description || '',
+          type: data.type || 'field',
+          isCustom: data.isCustom ?? true,
+          createdAt: data.createdAt || new Date().toISOString(),
+          persona: data.persona || {},
+          conversationStarters: data.conversationStarters || [],
+          avatar: BotIcon, // Client-side only
+        };
+      });
+
+      setBots(firestoreBots);
+
+      // Cache locally (omit avatar since it’s not serializable)
+      const storableBots = firestoreBots.map(({ avatar, ...rest }) => rest);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(storableBots));
+    } catch (error) {
+      console.error('Error loading bots:', error);
+      toast({
+        title: 'Error',
+        description: 'Could not load your bots from Firestore.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  fetchBots();
+}, [user, toast]);
+
 
   // 🔹 Add a new bot — now uses centralized service
   const addBot = useCallback(
@@ -99,11 +146,24 @@ export function useCustomBots() {
           ],
         };
 
-        // 2️⃣ Delegate Firestore saving + plan enforcement to service
-        await saveBotForUser(user.uid, {
-          ...newBot,
-          avatar: undefined,
-        });
+        // // 2️⃣ Delegate Firestore saving + plan enforcement to service
+        // await saveBotForUser(user.uid, {
+        //   ...newBot,
+        //   avatar: undefined,
+        // });
+        const { avatar, ...storableBot } = newBot;
+await saveBotForUser(user.uid, storableBot);
+
+//
+// ✅ 3️⃣ Immediately re-fetch latest bots
+      const snapshot = await getDocs(collection(db, 'users', user.uid, 'bots'));
+      const refreshedBots: CustomBot[] = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...(doc.data() as any),
+        avatar: BotIcon,
+      }));
+//
+
 
         // 3️⃣ Update local state + storage
         const updatedBots = [...bots, newBot];

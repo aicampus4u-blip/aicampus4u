@@ -36,11 +36,32 @@ const prompt = ai.definePrompt({
   name: 'customBotPrompt',
   input: {schema: CustomBotInputSchema},
   output: {schema: CustomBotOutputSchema},
-  prompt: `You are an AI expert specializing in creating AI bot personas.
+//   prompt: `You are an AI expert specializing in creating AI bot personas.
 
-You will receive the bot type, field, profession, topic and a description of the bot.
+// You will receive the bot type, field, profession, topic and a description of the bot.
 
-Based on this information, you will create a detailed persona for the bot, including its scope of knowledge and rules for handling out-of-scope questions. The AI should politely redirect users to create a more appropriate bot when a question is outside its expertise.
+// Based on this information, you will create a detailed persona for the bot, including its scope of knowledge and rules for handling out-of-scope questions. The AI should politely redirect users to create a more appropriate bot when a question is outside its expertise.
+
+// Bot Type: {{{botType}}}
+// {{#if field}}
+// Field: {{{field}}}
+// {{/if}}
+// {{#if profession}}
+// Profession: {{{profession}}}
+// {{/if}}
+// {{#if topic}}
+// Topic: {{{topic}}}
+// {{/if}}
+// Description: {{{description}}}
+
+// Persona:`,
+prompt: `You are an AI expert who helps define the personality and behavior of custom AI assistants.
+
+You will receive information about the bot type (Field, Profession, or Topic), along with optional details and a description of what the bot should do.
+
+Your goal is to write a **short, practical persona** that describes how this bot should speak and what knowledge it focuses on.
+
+Keep the tone friendly, conversational, and helpful — **avoid creating lesson plans, courses, or syllabus-like structures**. The persona should sound like a real human expert who gives clear, direct answers.
 
 Bot Type: {{{botType}}}
 {{#if field}}
@@ -55,6 +76,7 @@ Topic: {{{topic}}}
 Description: {{{description}}}
 
 Persona:`,
+
 });
 
 // const createCustomBotFlow = ai.defineFlow(
@@ -87,9 +109,13 @@ const createCustomBotFlow = ai.defineFlow(
       console.error("Gemini API error, using fallback persona:", error);
       // fallback persona if API fails or quota is exceeded
       const context = input.field || input.profession || input.topic || 'General Knowledge';
+      // return {
+      //   persona: `This is a mock AI assistant specializing in ${context}. It can discuss topics within ${context}, provide helpful insights, and politely redirect users when questions go beyond its expertise.`,
+      // };
       return {
-        persona: `This is a mock AI assistant specializing in ${context}. It can discuss topics within ${context}, provide helpful insights, and politely redirect users when questions go beyond its expertise.`,
-      };
+  persona: `This is a friendly AI assistant specializing in ${context}. It gives clear, direct answers about ${context} and helps users learn or solve problems in a natural way.`,
+};
+
     }
   }
 );
