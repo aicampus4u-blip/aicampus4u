@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase"; // firebase file location
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { useAuth } from "./use-auth";
 
 export interface SubscriptionData {
@@ -16,10 +16,11 @@ export function useSubscription() {
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Fetch subscription data
   useEffect(() => {
     const fetchSubscription = async () => {
       if (!user) {
-        setSubscription(null);
+        setSubscription({ plan: "Free", status: "inactive" });
         setLoading(false);
         return;
       }
@@ -44,9 +45,28 @@ export function useSubscription() {
     fetchSubscription();
   }, [user]);
 
+  // ✅ Add this function to allow plan updates (locally + Firestore)
+  const setPlan = async (newPlan: "Free" | "Pro") => {
+    if (!user) return;
+
+    const newData: SubscriptionData = {
+      plan: newPlan,
+      status: newPlan === "Pro" ? "active" : "inactive",
+      startDate: new Date().toISOString(),
+    };
+
+    try {
+      await setDoc(doc(db, "subscriptions", user.uid), newData, { merge: true });
+      setSubscription(newData);
+    } catch (error) {
+      console.error("Error updating subscription:", error);
+    }
+  };
+
   return {
     plan: subscription?.plan ?? "Free",
     status: subscription?.status ?? "inactive",
     loading,
+    setPlan, // ✅ now available in your component
   };
 }

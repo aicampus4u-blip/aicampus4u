@@ -1,29 +1,61 @@
+// /app/api/paystack/webhook/route.ts
+import { NextResponse, type NextRequest } from "next/server";
+import { db } from "@/lib/firebase";
+import { doc, setDoc } from "firebase/firestore";
+import crypto from "crypto";
 
-import { NextResponse, type NextRequest } from 'next/server';
+const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY || "";
 
-/**
- * This is a mock webhook handler for Paystack.
- * In a real application, you would:
- * 1. Verify the webhook signature to ensure it's from Paystack.
- * 2. Check the event type (e.g., 'charge.success').
- * 3. Look up the customer in your database using the email or customer code from the event data.
- * 4. Update the user's subscription status to 'Pro'.
- * 5. Return a 200 OK response to Paystack to acknowledge receipt.
- */
 export async function POST(req: NextRequest) {
   try {
-    const event = await req.json();
+    const rawBody = await req.text();
+    const signature = req.headers.get("x-paystack-signature");
 
-    // Log the event for testing purposes
-    console.log('Received Paystack webhook event:', event);
+    if (!signature || !PAYSTACK_SECRET) {
+      return NextResponse.json({ error: "Missing signature or secret" }, { status: 400 });
+    }
 
-    // TODO: Add logic here to verify the event and update user subscription
+    // ✅ Verify the signature to ensure it's from Paystack
+    const hash = crypto.createHmac("sha512", PAYSTACK_SECRET).update(rawBody).digest("hex");
+    if (hash !== signature) {
+      console.warn("Invalid Paystack webhook signature");
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+    }
 
-    // Respond to Paystack to acknowledge receipt of the event
+    const event = JSON.parse(rawBody);
+    console.log("✅ Paystack webhook event:", event.event);
+
+    // ⚙️ Handle only successful payments
+    if (event.event === "charge.success") {
+      const email = event.data.customer.email;
+      const userId = event.data.metadata?.userId; // Include this when initializing payment
+
+      if (!userId) {
+        console.warn("⚠️ Webhook received without userId in metadata");
+        return NextResponse.json({ message: "Missing userId" }, { status: 200 });
+      }
+
+      const subRef = doc(db, "subscriptions", userId);
+      await setDoc(
+        subRef,
+        {
+          plan: "Pro",
+          status: "active",
+          updatedAt: new Date().toISOString(),
+          reference: event.data.reference,
+          amount: event.data.amount,
+          email,
+        },
+        { merge: true }
+      );
+
+      console.log(`✅ Subscription upgraded for user ${userId}`);
+    }
+
+    // ✅ Respond to Paystack that we received the webhook
     return NextResponse.json({ received: true }, { status: 200 });
-
-  } catch (error: any) {
-    console.error('Error handling Paystack webhook:', error);
-    return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 });
+  } catch (error) {
+    console.error("❌ Error handling Paystack webhook:", error);
+    return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });
   }
 }
