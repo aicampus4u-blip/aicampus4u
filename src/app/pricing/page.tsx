@@ -57,7 +57,7 @@ function PaystackButton({
   onSuccessfulPayment,
 }: {
   isAnnual: boolean;
-  onSuccessfulPayment: () => void;
+  onSuccessfulPayment: (reference: string) => void;
 }) {
   const { user } = useAuth();
   const proPlan = plans.find((p) => p.id === "Pro")!;
@@ -69,19 +69,41 @@ function PaystackButton({
   // In a real app, you would fetch the current exchange rate.
   const priceInKobo = priceInDollars * 1500 * 100; // Example: 1 USD = 1500 NGN, and price is in kobo
 
+
   const config = {
     reference: new Date().getTime().toString(),
-    email: user?.email || "",
-    amount: priceInKobo,
+    email: user?.email ?? "",
+    amount: priceInKobo, // ✅ use the correct amount here
     publicKey: PAYSTACK_PUBLIC_KEY,
+    metadata: {
+      userId: user?.uid,
+      plan: isAnnual ? "pro_annual" : "pro_monthly",
+      custom_fields: [
+        {
+          display_name: "User ID",
+          variable_name: "userId",
+          value: user?.uid,
+        },
+        {
+          display_name: "Plan",
+          variable_name: "plan",
+          value: isAnnual ? "pro_annual" : "pro_monthly",
+        },
+      ],
+    },
   };
 
   const initializePayment = usePaystackPayment(config);
   const { toast } = useToast();
 
-  const handleSuccess = () => {
-    onSuccessfulPayment();
-  };
+  // const handleSuccess = () => {
+  //   onSuccessfulPayment();
+  // };
+const handleSuccess = (reference: any) => {
+  console.log("Payment successful:", reference);
+  onSuccessfulPayment(reference.reference); // call the real callback
+};
+
 
   const handleClose = () => {
     // User closed the popup
@@ -97,6 +119,7 @@ function PaystackButton({
       });
       return;
     }
+    // initializePayment({ onSuccess: handleSuccess, onClose: handleClose });
     initializePayment({ onSuccess: handleSuccess, onClose: handleClose });
   };
 
@@ -115,23 +138,12 @@ export default function PricingPage() {
   const router = useRouter();
   const { user } = useAuth();
 
-  // const handleSuccessfulPayment = async () => {
-  //   setIsUpgrading(true);
-  //   // Simulate a brief delay for UX
-  //   await new Promise((resolve) => setTimeout(resolve, 500));
-  //   setPlan("Pro");
-  //   setIsUpgrading(false);
-  //   toast({
-  //     title: "Upgrade Successful!",
-  //     description: "You're now on the Pro plan. All features are unlocked.",
-  //   });
-  //   router.push("/chat/general/knowledge");
-  // };
+
   const handleSuccessfulPayment = async (reference?: string) => {
     setIsUpgrading(true);
     try {
       // Call your verification API route
-      const res = await fetch("/api/paystack/verify", {
+      const res = await fetch("/api/paystack/webhook/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -139,6 +151,8 @@ export default function PricingPage() {
           userId: user?.uid,
         }),
       });
+
+      // console.error("res:", res);
 
       if (res.ok) {
         setPlan("Pro");
