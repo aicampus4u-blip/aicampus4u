@@ -151,7 +151,7 @@ export default function PricingPage() {
         toast({
           title: "Verification Failed",
           description:
-            "We couldn’t verify your payment. Please contact support.",
+            "We couldn’t verify your payment. Please check your internet access.",
           variant: "destructive",
         });
       }
