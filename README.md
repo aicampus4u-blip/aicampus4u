@@ -2,6 +2,8 @@
 
 This is a Next.js application built with Firebase Studio, featuring AI-powered educational bots and subscription management.
 
+> **Note**: This project was bootstrapped from a Next.js starter template (package name: "nextn") and is being developed as AI Campus 4U.
+
 ## Preview the Project
 
 This project is configured with Firebase Studio's preview functionality. The preview is automatically enabled and will start when you open the workspace.
@@ -28,7 +30,10 @@ npm run dev
 # The app will be available at http://localhost:3000
 ```
 
-**Note**: You need to configure Firebase credentials in `.env.local` for the application to work properly. See `.env.local.example` for the required environment variables.
+**Note**: You need to configure Firebase credentials and Google AI API key in `.env.local` for the application to work properly. See `.env.local.example` for all required environment variables including:
+- Firebase client configuration (for authentication and Firestore)
+- Firebase admin credentials (for server-side operations)
+- Google Generative AI API key (for Genkit AI features)
 
 ## Project Structure
 
