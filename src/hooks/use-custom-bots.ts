@@ -153,7 +153,24 @@ export function useCustomBots() {
 
         // 2️⃣ Save to Firestore
         const { avatar, ...storableBot } = newBot;
-        await saveBotForUser(user.uid, storableBot);
+        // await saveBotForUser(user.uid, storableBot);
+        try {
+          await saveBotForUser(user.uid, storableBot);
+        } catch (error: any) {
+          if (error.message?.includes("Free users can only create one bot")) {
+            toast({
+              title: "Upgrade Required",
+              description:
+                "Free users can only create one bot. Please upgrade to unlock more bots.",
+              variant: "destructive",
+            });
+
+            // 🚀 Redirect to pricing page
+            router.push("/pricing");
+            return; // stop execution here
+          }
+          throw error;
+        }
 
         // 3️⃣ Re-fetch bots from Firestore (authoritative source)
         const snapshot = await getDocs(
