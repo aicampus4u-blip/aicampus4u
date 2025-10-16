@@ -37,8 +37,8 @@ const plans = [
   {
     id: "Pro",
     name: "Pro",
-    monthlyPrice: 15,
-    annualPrice: 144, // $12/month
+    monthlyPrice: 1,
+    annualPrice: 9, // $12/month
     description: "For power users and professionals.",
     features: [
       "Unlimited Custom Bots",
