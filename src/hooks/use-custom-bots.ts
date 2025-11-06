@@ -253,10 +253,14 @@ export function useCustomBots() {
     [user, toast]
   );
 
+  // Define bot limits based on subscription plan
+  const botLimit = plan === "Pro" ? 10 : 3;
+
   return {
     bots,
     addBot,
     deleteBot,
     loading: loading || subscriptionLoading,
+    botLimit,
   };
 }
